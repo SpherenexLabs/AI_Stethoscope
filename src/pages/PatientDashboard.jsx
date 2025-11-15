@@ -1381,11 +1381,11 @@ const PatientDashboard = ({ userId, onLogout }) => {
                     console.log("Raw Firebase data:", data);
                     
                     // Parse the data from the new structure
-                    const heartRate = parseInt(data["1_HR"]) || 0;
-                    const spo2 = parseInt(data["2_SPO2"]) || 0;
-                    const bpString = data["3_BP"] || "0/0";
-                    const temperature = parseFloat(data["4_Temp"]) || 0;
-                    const humidity = parseFloat(data["5_Hum"]) || 0;
+                    const heartRate = parseInt(data["HR"]) || 0;
+                    const spo2 = parseInt(data["SpO2"]) || 0;
+                    const bpString = data["BP"] || "0/0";
+                    const temperature = parseFloat(data["Temp"]) || 0;
+                    const humidity = parseFloat(data["Hum"]) || 0;
                     
                     console.log("Parsed values:", { heartRate, spo2, bpString, temperature, humidity });
                     
@@ -2117,43 +2117,44 @@ const PatientDashboard = ({ userId, onLogout }) => {
                             {userData.email && <p>Email: {userData.email}</p>}
                         </div>
 
-                        {sensorData && (
-                            <div className="card">
-                                <h3>Current Health Metrics</h3>
-                                <div className="health-metrics-container">
-                                    <div className="health-metric">
-                                        <div className="metric-title">Heart Rate</div>
-                                        <div className="metric-value" style={{ color: getStatusColor('heartRate', sensorData.heartRate) }}>
-                                            {sensorData.heartRate} bpm
-                                        </div>
+                        <div className="card">
+                            <h3>Current Health Metrics</h3>
+                            <div style={{marginBottom: '10px', padding: '10px', background: '#f0f0f0'}}>
+                                DEBUG: HR={sensorData?.heartRate} SpO2={sensorData?.spo2} BP={sensorData?.bp} Temp={sensorData?.temperature} Hum={sensorData?.humidity}
+                            </div>
+                            <div className="health-metrics-container">
+                                <div className="health-metric">
+                                    <div className="metric-title">Heart Rate</div>
+                                    <div className="metric-value" style={{ color: getStatusColor('heartRate', sensorData?.heartRate || 0) }}>
+                                        {sensorData?.heartRate || 0} bpm
                                     </div>
-                                    <div className="health-metric">
-                                        <div className="metric-title">Oxygen Saturation (SpO2)</div>
-                                        <div className="metric-value" style={{ color: getStatusColor('spo2', sensorData.spo2) }}>
-                                            {sensorData.spo2}%
-                                        </div>
+                                </div>
+                                <div className="health-metric">
+                                    <div className="metric-title">Oxygen Saturation (SpO2)</div>
+                                    <div className="metric-value" style={{ color: getStatusColor('spo2', sensorData?.spo2 || 0) }}>
+                                        {sensorData?.spo2 || 0}%
                                     </div>
-                                    <div className="health-metric">
-                                        <div className="metric-title">Blood Pressure</div>
-                                        <div className="metric-value" style={{ color: getStatusColor('bp', { systolic: sensorData.bpSystolic, diastolic: sensorData.bpDiastolic }) }}>
-                                            {sensorData.bp} mmHg
-                                        </div>
+                                </div>
+                                <div className="health-metric">
+                                    <div className="metric-title">Blood Pressure</div>
+                                    <div className="metric-value" style={{ color: getStatusColor('bp', { systolic: sensorData?.bpSystolic || 0, diastolic: sensorData?.bpDiastolic || 0 }) }}>
+                                        {sensorData?.bp || '0/0'} mmHg
                                     </div>
-                                    <div className="health-metric">
-                                        <div className="metric-title">Body Temperature</div>
-                                        <div className="metric-value" style={{ color: getStatusColor('temperature', sensorData.temperature) }}>
-                                            {sensorData.temperature}°C
-                                        </div>
+                                </div>
+                                <div className="health-metric">
+                                    <div className="metric-title">Body Temperature</div>
+                                    <div className="metric-value" style={{ color: getStatusColor('temperature', sensorData?.temperature || 0) }}>
+                                        {sensorData?.temperature || 0}°C
                                     </div>
-                                    <div className="health-metric">
-                                        <div className="metric-title">Humidity</div>
-                                        <div className="metric-value">
-                                            {sensorData.humidity}%
-                                        </div>
+                                </div>
+                                <div className="health-metric">
+                                    <div className="metric-title">Humidity</div>
+                                    <div className="metric-value">
+                                        {sensorData?.humidity || 0}%
                                     </div>
                                 </div>
                             </div>
-                        )}
+                        </div>
                         <div className="card">
                             <h3>Your Health Progress</h3>
                             <div className="health-progress-preview">
