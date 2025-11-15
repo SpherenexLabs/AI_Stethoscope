@@ -1373,11 +1373,12 @@ const PatientDashboard = ({ userId, onLogout }) => {
 
         const fetchSensorData = () => {
             // Fetch data from the new Firebase structure
-            const sensorDataRef = ref(database, `1_Sensor_Data`);
+            const sensorDataRef = ref(database, `40_KS5282_Soldier_11/1_Sensor_Data`);
             
             const unsubscribe = onValue(sensorDataRef, (snapshot) => {
                 if (snapshot.exists()) {
                     const data = snapshot.val();
+                    console.log("Raw Firebase data:", data);
                     
                     // Parse the data from the new structure
                     const heartRate = parseInt(data["1_HR"]) || 0;
@@ -1385,6 +1386,8 @@ const PatientDashboard = ({ userId, onLogout }) => {
                     const bpString = data["3_BP"] || "0/0";
                     const temperature = parseFloat(data["4_Temp"]) || 0;
                     const humidity = parseFloat(data["5_Hum"]) || 0;
+                    
+                    console.log("Parsed values:", { heartRate, spo2, bpString, temperature, humidity });
                     
                     // Parse BP string (format: "119/80")
                     const bpParts = bpString.split('/');
@@ -1400,6 +1403,8 @@ const PatientDashboard = ({ userId, onLogout }) => {
                         temperature,
                         humidity
                     });
+                    
+                    console.log("Sensor data set:", { heartRate, spo2, bp: bpString, temperature, humidity });
                     
                     // Also set healthData for compatibility with existing components
                     setHealthData({
@@ -1525,83 +1530,12 @@ const PatientDashboard = ({ userId, onLogout }) => {
         }
     }, [userId, activeCall]);
 
-    useEffect(() => {
-        if (!patientHealthRecord || !healthData) return;
-        if (bedsoreHistory.length === 0) return;
-
-        const lastAssessment = bedsoreHistory[0];
-        const lastAssessmentTime = new Date(lastAssessment.timestamp).getTime();
-        const currentTime = new Date().getTime();
-
-        const sixHoursInMs = 6 * 60 * 60 * 1000;
-        const shouldReassessByTime = (currentTime - lastAssessmentTime) > sixHoursInMs;
-
-        const hasWarning = healthData.warning > 0;
-
-        const sittingDurationIncreased =
-            healthData.sittingDuration > 120 &&
-            (!lastAssessment.patientSnapshot?.sittingDuration ||
-                healthData.sittingDuration > lastAssessment.patientSnapshot.sittingDuration + 60);
-
-        const hasHighPressure =
-            healthData.backPressure_L > 80 ||
-            healthData.backPressure_R > 80 ||
-            healthData.shoulderPressure_L > 80 ||
-            healthData.shoulderPressure_R > 80 ||
-            healthData.legPressure_L > 80 ||
-            healthData.legPressure_R > 80;
-
-        const hasHighHumidity =
-            envData.sensor1_SR.humidity > 70 ||
-            envData.sensor2_SL.humidity > 70 ||
-            envData.sensor3_BR.humidity > 70 ||
-            envData.sensor4_BL.humidity > 70 ||
-            envData.sensor5_LR.humidity > 70 ||
-            envData.sensor6_LL.humidity > 70;
-
-        if (shouldReassessByTime || hasWarning || sittingDurationIncreased || hasHighPressure || hasHighHumidity) {
-            console.log("Trigger conditions met for automatic bedsore risk reassessment");
-
-            if (!isReassessing.current) {
-                isReassessing.current = true;
-
-                const performReassessment = async () => {
-                    try {
-                        console.log("Performing automatic bedsore risk reassessment");
-
-                        const currentPatientData = {
-                            ...patientHealthRecord,
-                            currentSittingDuration: healthData.sittingDuration,
-                            currentPressurePoints: {
-                                backL: healthData.backPressure_L,
-                                backR: healthData.backPressure_R,
-                                shoulderL: healthData.shoulderPressure_L,
-                                shoulderR: healthData.shoulderPressure_R,
-                                legL: healthData.legPressure_L,
-                                legR: healthData.legPressure_R
-                            },
-                            currentEnvironment: {
-                                humidity: envData
-                            },
-                            autoReassessmentReason: hasWarning ? "warning" :
-                                sittingDurationIncreased ? "extended_sitting" :
-                                    hasHighPressure ? "high_pressure" :
-                                        hasHighHumidity ? "high_humidity" : "scheduled"
-                        };
-
-                        await saveBedsoreAssessment(currentPatientData, healthData);
-
-                    } catch (error) {
-                        console.error("Error in automatic reassessment:", error);
-                    } finally {
-                        isReassessing.current = false;
-                    }
-                };
-
-                performReassessment();
-            }
-        }
-    }, [healthData, envData, patientHealthRecord, bedsoreHistory]);
+    // Removed automatic bedsore reassessment - no longer needed
+    // useEffect(() => {
+    //     if (!patientHealthRecord || !healthData) return;
+    //     if (bedsoreHistory.length === 0) return;
+    //     ...
+    // }, [healthData, patientHealthRecord, healthPredictions]);
 
     const handleHealthFormSubmit = async (formData) => {
         try {
@@ -1661,8 +1595,8 @@ const PatientDashboard = ({ userId, onLogout }) => {
             const predictionResult = simulateMLPrediction(patientData, metrics);
 
             let previousAssessment = null;
-            if (bedsoreHistory.length > 0) {
-                previousAssessment = bedsoreHistory[0];
+            if (healthPredictions.length > 0) {
+                previousAssessment = healthPredictions[0];
             }
 
             const isHighRisk = predictionResult.riskLevel === 'high' || predictionResult.riskLevel === 'very-high';
@@ -1673,7 +1607,7 @@ const PatientDashboard = ({ userId, onLogout }) => {
                 (predictionResult.riskScore > previousAssessment.riskScore + 10)
             );
 
-            await set(ref(database, `bedsoreAssessments/${userId}/${safeKey}`), {
+            await set(ref(database, `healthPredictions/${userId}/${safeKey}`), {
                 ...predictionResult,
                 patientSnapshot: {
                     mobilityStatus: patientData.mobilityStatus,
@@ -1687,7 +1621,7 @@ const PatientDashboard = ({ userId, onLogout }) => {
                 userId
             });
 
-            await fetchBedsoreHistory();
+            await fetchHealthPredictions();
 
             if (isNewHighRisk) {
                 console.log("New high risk detected! Sending automatic notification to doctor...");
@@ -1744,7 +1678,8 @@ const PatientDashboard = ({ userId, onLogout }) => {
                 alert(`Your bedsore risk assessment is complete. Your risk level is: ${predictionResult.riskLevel.toUpperCase()}`);
             }
 
-            await saveBedsoreAssessment(patientHealthRecord, healthData);
+            // Removed saveBedsoreAssessment - no longer needed
+            // await saveBedsoreAssessment(patientHealthRecord, healthData);
 
         } catch (error) {
             console.error("Error in manual risk assessment:", error);
@@ -2294,12 +2229,7 @@ const PatientDashboard = ({ userId, onLogout }) => {
                             >
                                 View Health History
                             </button>
-                            <button
-                                className="button"
-                                onClick={triggerManualRiskAssessment}
-                            >
-                                ML Bedsore Assessment
-                            </button>
+                            {/* Removed ML Bedsore Assessment button - replaced with Health Assessment tab */}
                         </div>
                     </div>
                 )}
@@ -2327,7 +2257,7 @@ const PatientDashboard = ({ userId, onLogout }) => {
                                             <span className="header-actions">Actions</span>
                                         </div>
                                         {healthHistory.map((record) => {
-                                            const bedsoreEntry = bedsoreHistory.find(assessment =>
+                                            const bedsoreEntry = healthPredictions.find(assessment =>
                                                 new Date(assessment.timestamp).toDateString() === new Date(record.timestamp).toDateString()
                                             );
                                             let bmiCategory = getBMICategory(record.height, record.weight);

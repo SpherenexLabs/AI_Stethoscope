@@ -1,0 +1,38 @@
+{
+  "rules": {
+    "users": {
+      ".indexOn": ["phoneNumber", "userType", "doctorId"],
+      ".read": true,
+      ".write": true
+    },
+    "1_Sensor_Data": {
+      ".read": true,
+      ".write": true
+    },
+    "calls": {
+      ".indexOn": ["patientId", "doctorId"],
+      ".read": true,
+      ".write": true
+    },
+    "healthData": {
+      ".read": true,
+      ".write": true
+    },
+    "healthRecords": {
+      ".read": true,
+      ".write": true
+    },
+    "healthPredictions": {
+      ".read": true,
+      ".write": true
+    },
+    "patients": {
+      ".read": true,
+      ".write": true
+    },
+    "reports": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

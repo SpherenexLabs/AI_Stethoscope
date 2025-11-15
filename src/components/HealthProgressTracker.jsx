@@ -8,16 +8,15 @@ import '../styles/HealthProgressTracker.css';
 
 const HealthProgressTracker = ({ userId }) => {
   const [healthRecords, setHealthRecords] = useState([]);
-  const [bedsoreAssessments, setBedsoreAssessments] = useState([]);
+  const [sensorDataHistory, setSensorDataHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('month');
   const [chartData, setChartData] = useState([]);
   const [activeMetrics, setActiveMetrics] = useState({
     weight: true,
     bloodPressure: true,
-    heartRate: false,
-    bedsoreRisk: true,
-    pressure: true,
+    heartRate: true,
+    spo2: true,
     temperature: true,
     humidity: true,
   });
@@ -30,6 +29,7 @@ const HealthProgressTracker = ({ userId }) => {
     const fetchHealthData = async () => {
       setLoading(true);
       try {
+        // Fetch health records
         const healthRef = ref(database, `healthRecords/${userId}`);
         const healthSnapshot = await get(healthRef);
 
@@ -46,20 +46,21 @@ const HealthProgressTracker = ({ userId }) => {
           setHealthRecords(records);
         }
 
-        const bedsoreRef = ref(database, `bedsoreAssessments/${userId}`);
-        const bedsoreSnapshot = await get(bedsoreRef);
+        // Fetch health predictions instead of bedsore assessments
+        const predictionsRef = ref(database, `healthPredictions/${userId}`);
+        const predictionsSnapshot = await get(predictionsRef);
 
-        if (bedsoreSnapshot.exists()) {
-          const assessments = [];
-          bedsoreSnapshot.forEach((childSnapshot) => {
-            assessments.push({
+        if (predictionsSnapshot.exists()) {
+          const predictions = [];
+          predictionsSnapshot.forEach((childSnapshot) => {
+            predictions.push({
               id: childSnapshot.key,
               ...childSnapshot.val(),
               timestamp: new Date(childSnapshot.val().timestamp),
             });
           });
-          assessments.sort((a, b) => b.timestamp - a.timestamp);
-          setBedsoreAssessments(assessments);
+          predictions.sort((a, b) => b.timestamp - a.timestamp);
+          setSensorDataHistory(predictions);
         }
       } catch (error) {
         console.error("Error fetching health data:", error);
@@ -74,11 +75,11 @@ const HealthProgressTracker = ({ userId }) => {
   }, [userId]);
 
   useEffect(() => {
-    if (healthRecords.length > 0 || bedsoreAssessments.length > 0) {
+    if (healthRecords.length > 0 || sensorDataHistory.length > 0) {
       const data = prepareChartData();
       setChartData(data);
     }
-  }, [healthRecords, bedsoreAssessments, timeRange]);
+  }, [healthRecords, sensorDataHistory, timeRange]);
 
   useEffect(() => {
     if (chartData.length > 0 && chartRef.current) {
@@ -135,10 +136,10 @@ const HealthProgressTracker = ({ userId }) => {
         );
       }
 
-      if (activeMetrics.bedsoreRisk) {
+      if (activeMetrics.spo2) {
         datasets.push({
-          label: 'Bedsore Risk',
-          data: chartData.map(item => item.bedsoreRisk),
+          label: 'SpO2 (%)',
+          data: chartData.map(item => item.spo2),
           borderColor: '#2ecc71',
           backgroundColor: 'rgba(46, 204, 113, 0.1)',
           borderWidth: 2,
@@ -327,7 +328,7 @@ const HealthProgressTracker = ({ userId }) => {
 
     return {
       healthRecords: healthRecords.filter(record => record.timestamp >= cutoffDate),
-      bedsoreAssessments: bedsoreAssessments.filter(record => record.timestamp >= cutoffDate),
+      sensorDataHistory: sensorDataHistory.filter(record => record.timestamp >= cutoffDate),
     };
   };
 
@@ -346,10 +347,10 @@ const HealthProgressTracker = ({ userId }) => {
   };
 
   const prepareChartData = () => {
-    const { healthRecords, bedsoreAssessments } = getFilteredRecords();
+    const { healthRecords, sensorDataHistory } = getFilteredRecords();
 
     const sortedHealthRecords = [...healthRecords].sort((a, b) => a.timestamp - b.timestamp);
-    const sortedBedsoreRecords = [...bedsoreAssessments].sort((a, b) => a.timestamp - b.timestamp);
+    const sortedSensorRecords = [...sensorDataHistory].sort((a, b) => a.timestamp - b.timestamp);
 
     const combinedData = {};
 
@@ -376,7 +377,7 @@ const HealthProgressTracker = ({ userId }) => {
       if (record.humidity) combinedData[dateStr].humidity = parseFloat(record.humidity);
     });
 
-    sortedBedsoreRecords.forEach(record => {
+    sortedSensorRecords.forEach(record => {
       const dateStr = record.timestamp.toISOString().split('T')[0];
 
       if (!combinedData[dateStr]) {
@@ -387,7 +388,9 @@ const HealthProgressTracker = ({ userId }) => {
         };
       }
 
-      combinedData[dateStr].bedsoreRisk = record.riskScore;
+      // Add sensor-based health metrics
+      if (record.heartRate) combinedData[dateStr].heartRate = record.heartRate;
+      if (record.spo2) combinedData[dateStr].spo2 = record.spo2;
     });
 
     const result = Object.values(combinedData).sort((a, b) => a.timestamp - b.timestamp);
@@ -426,7 +429,7 @@ const HealthProgressTracker = ({ userId }) => {
       systolic: calculateAverage(historicalData, 'systolic'),
       diastolic: calculateAverage(historicalData, 'diastolic'),
       heartRate: calculateAverage(historicalData, 'heartRate'),
-      bedsoreRisk: calculateAverage(historicalData, 'bedsoreRisk'),
+      spo2: calculateAverage(historicalData, 'spo2'),
       pressure: calculateAverage(historicalData, 'pressure'),
       temperature: calculateAverage(historicalData, 'temperature'),
       humidity: calculateAverage(historicalData, 'humidity'),
@@ -437,7 +440,7 @@ const HealthProgressTracker = ({ userId }) => {
       systolic: latestData.systolic ? (latestData.systolic - historicalAverages.systolic) : null,
       diastolic: latestData.diastolic ? (latestData.diastolic - historicalAverages.diastolic) : null,
       heartRate: latestData.heartRate ? (latestData.heartRate - historicalAverages.heartRate) : null,
-      bedsoreRisk: latestData.bedsoreRisk ? (latestData.bedsoreRisk - historicalAverages.bedsoreRisk) : null,
+      spo2: latestData.spo2 ? (latestData.spo2 - historicalAverages.spo2) : null,
       pressure: latestData.pressure ? (latestData.pressure - historicalAverages.pressure) : null,
       temperature: latestData.temperature ? (latestData.temperature - historicalAverages.temperature) : null,
       humidity: latestData.humidity ? (latestData.humidity - historicalAverages.humidity) : null,
@@ -499,14 +502,14 @@ const HealthProgressTracker = ({ userId }) => {
       // Get the latest patient record (already sorted by timestamp)
       const patientInfo = healthRecords[0];
       
-      // Get bedsore assessments data
-      const hasBedsoreData = bedsoreAssessments.length > 0;
-      const latestBedsoreAssessment = hasBedsoreData ? bedsoreAssessments[0] : null;
+      // Get sensor data history
+      const hasSensorData = sensorDataHistory.length > 0;
+      const latestHealthAssessment = hasSensorData ? sensorDataHistory[0] : null;
       
       // Set up document
       doc.setFontSize(24);
       doc.setTextColor(44, 62, 80);
-      doc.text("Bedsore Prevention Report", 105, 20, { align: "center" });
+      doc.text("Health Monitoring Report", 105, 20, { align: "center" });
   
       doc.setFontSize(12);
       doc.setTextColor(100, 100, 100);
