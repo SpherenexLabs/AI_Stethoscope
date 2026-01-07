@@ -45,8 +45,8 @@ const ZegoManager = {
       console.log(`Initializing call ${callId} for ${role}`);
 
       // Generate token - using consistent app credentials
-      const appID = 136543261;
-      const serverSecret = "41e637fda4af88493461b59020a78c0b";
+      const appID = 260358420;
+      const serverSecret = "5320b53637b934c8c77721d69943bc4c";
 
       // Clear the container first
       while (container.firstChild) {
@@ -192,5 +192,6 @@ const ZegoManager = {
     }
   }
 };
+
 
 export default ZegoManager; 
